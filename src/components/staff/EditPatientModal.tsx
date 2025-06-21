@@ -30,25 +30,88 @@ const EditPatientModal: React.FC<EditPatientModalProps> = ({ patient, onClose, o
     contactName: '',
     status: 'active'
   });
+  const [phoneError, setPhoneError] = useState('');
 
   useEffect(() => {
-    // Split the name into first and last name
-    const [firstName = '', lastName = ''] = patient.name.split(' ');
+    // Ensure patient object exists and has required properties
+    if (!patient) {
+      console.error('EditPatientModal: patient prop is undefined or null');
+      return;
+    }
+
+    // Use firstName and lastName directly from patient object
+    // Fallback to splitting name if firstName/lastName are not available
+    let firstName = patient.firstName || '';
+    let lastName = patient.lastName || '';
+    
+    // If firstName/lastName are empty but name exists, try to split it
+    if ((!firstName || !lastName) && patient.name && typeof patient.name === 'string') {
+      const nameParts = patient.name.split(' ');
+      firstName = nameParts[0] || '';
+      lastName = nameParts.slice(1).join(' ') || '';
+    }
     
     setFormData({
       firstName,
       lastName,
-      email: patient.email,
-      phone: patient.phone,
-      age: patient.age.toString(),
-      sex: patient.sex,
-      contactName: patient.contactName,
-      status: patient.status
+      email: patient.email || '',
+      phone: patient.phone || '',
+      age: patient.age ? patient.age.toString() : '',
+      sex: patient.sex || 'male',
+      contactName: patient.contactName || '',
+      status: patient.status || 'active'
     });
   }, [patient]);
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    
+    // Only allow numbers
+    const numbersOnly = value.replace(/\D/g, '');
+    
+    // Limit to 11 digits
+    const limitedValue = numbersOnly.slice(0, 11);
+    
+    setFormData({ ...formData, phone: limitedValue });
+    
+    // Clear error when user starts typing
+    if (phoneError) {
+      setPhoneError('');
+    }
+  };
+
+  const handlePhoneBlur = () => {
+    // Validate phone number when user leaves the field
+    if (formData.phone) {
+      validatePhone(formData.phone);
+    }
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    if (!phone) {
+      setPhoneError('Phone number is required');
+      return false;
+    }
+    if (phone.length !== 11) {
+      setPhoneError('Phone number must be exactly 11 digits');
+      return false;
+    }
+    if (!phone.startsWith('09')) {
+      setPhoneError('Phone number must start with 09');
+      return false;
+    }
+    setPhoneError('');
+    return true;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate phone number before submitting
+    if (!validatePhone(formData.phone)) {
+      return;
+    }
+    
     onSubmit({
       ...formData,
       age: parseInt(formData.age),
@@ -103,11 +166,35 @@ const EditPatientModal: React.FC<EditPatientModalProps> = ({ patient, onClose, o
                 <input
                   type="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
-                  placeholder="Enter phone number"
+                  onChange={handlePhoneChange}
+                  onBlur={handlePhoneBlur}
+                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300 ${
+                    phoneError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter 11-digit phone number (e.g., 09123456789)"
+                  maxLength={11}
                   required
                 />
+                {phoneError && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {phoneError}
+                  </p>
+                )}
+                {!phoneError && formData.phone && (
+                  <p className={`text-sm mt-1 ${
+                    formData.phone.length === 11 && formData.phone.startsWith('09') 
+                      ? 'text-green-600' 
+                      : 'text-gray-500'
+                  }`}>
+                    {formData.phone.length}/11 digits
+                    {formData.phone.length === 11 && !formData.phone.startsWith('09') && (
+                      <span className="text-red-500 ml-2">• Must start with 09</span>
+                    )}
+                  </p>
+                )}
               </div>
             </div>
           </div>

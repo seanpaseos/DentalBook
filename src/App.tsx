@@ -3,9 +3,11 @@ import { useAuth } from './hooks/useAuth';
 import SelectionPage from './components/SelectionPage';
 import BookingForm from './components/patient/BookingForm';
 import StaffDashboard from './components/staff/StaffDashboard';
+import { getBlockedDates } from './services/firestore';
 
 function App() {
   const [currentView, setCurrentView] = useState<'selection' | 'booking' | 'staff-dashboard'>('selection');
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const { user, loading } = useAuth();
 
   useEffect(() => {
@@ -13,6 +15,19 @@ function App() {
       setCurrentView('staff-dashboard');
     }
   }, [user]);
+
+  useEffect(() => {
+    const loadBlockedDates = async () => {
+      try {
+        const dates = await getBlockedDates();
+        setBlockedDates(dates);
+      } catch (error) {
+        console.error('Error loading blocked dates:', error);
+      }
+    };
+
+    loadBlockedDates();
+  }, []);
 
   const handleRoleSelect = (role: 'patient' | 'staff') => {
     if (role === 'patient') {
@@ -46,7 +61,7 @@ function App() {
       )}
       
       {currentView === 'booking' && (
-        <BookingForm onClose={handleBackToSelection} />
+        <BookingForm onClose={handleBackToSelection} blockedDates={blockedDates} />
       )}
       
       {/* Staff login is now handled by the modal in SelectionPage */}

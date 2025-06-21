@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Calendar, Clock, User, AlertCircle, CheckCircle2, XCircle, Clock as ClockIcon } from 'lucide-react';
 import { Appointment, Patient } from '../../types';
-import { getAppointments, updateAppointment, deleteAppointment, getPatients } from '../../services/firestore';
+import { getAppointments, updateAppointment, deleteAppointment, getPatients, getBlockedDates } from '../../services/firestore';
 import EditAppointmentModal from './EditAppointmentModal';
 import AddAppointmentModal from './AddAppointmentModal';
 
 const AppointmentListPage: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,12 +25,14 @@ const AppointmentListPage: React.FC = () => {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      const [appointmentsData, patientsData] = await Promise.all([
+      const [appointmentsData, patientsData, blockedDatesData] = await Promise.all([
         getAppointments(),
-        getPatients()
+        getPatients(),
+        getBlockedDates()
       ]);
       setAppointments(appointmentsData);
       setPatients(patientsData);
+      setBlockedDates(blockedDatesData);
     } catch (error) {
       console.error('Error fetching data:', error);
       setError('Failed to load appointments. Please try again.');
@@ -87,6 +90,18 @@ const AppointmentListPage: React.FC = () => {
       default:
         return null;
     }
+  };
+
+  const getFilterDescription = () => {
+    const filters = [];
+    if (statusFilter) filters.push(statusFilter.toUpperCase());
+    if (dateFilter) filters.push('on ' + new Date(dateFilter).toLocaleDateString());
+    if (searchTerm) filters.push(`matching "${searchTerm}"`);
+    
+    if (filters.length === 1) return filters[0];
+    if (filters.length === 2) return filters.join(' ');
+    if (filters.length === 3) return filters.join(' ');
+    return '';
   };
 
   const filteredAppointments = appointments
@@ -195,96 +210,134 @@ const AppointmentListPage: React.FC = () => {
       {/* Appointments List */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden flex-1">
         <div className="overflow-x-auto h-full">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Patient
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Procedure
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date & Time
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Price
-                </th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredAppointments.map(appointment => (
-                <tr key={appointment.id} className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-7 w-7">
-                        <div className="h-7 w-7 rounded-full bg-teal-100 flex items-center justify-center">
-                          <User className="w-3.5 h-3.5 text-teal-600" />
-                        </div>
-                      </div>
-                      <div className="ml-2">
-                        <div className="text-sm font-medium text-gray-900">
-                          {appointment.patientName}
-                        </div>
-                        <div className="text-xs text-gray-500">{appointment.patientPhone}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{appointment.procedureType}</div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-sm text-gray-900">{appointment.date}</span>
-                      <Clock className="w-3.5 h-3.5 text-gray-400 ml-1" />
-                      <span className="text-sm text-gray-900">{appointment.time}</span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div className="flex items-center space-x-1">
-                      <span className={`px-1.5 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full ${getStatusColor(appointment.status)}`}>
-                        {getStatusIcon(appointment.status)}
-                        <span className="ml-0.5">{appointment.status}</span>
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div className="flex items-center space-x-1">
-                      <span className="text-sm font-medium text-gray-900">₱{typeof appointment.procedurePrice === 'number' ? appointment.procedurePrice.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => handleEditAppointment(appointment)}
-                      className="text-teal-600 hover:text-teal-900 mr-2 text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteAppointment(appointment.id)}
-                      className="text-red-600 hover:text-red-900 text-sm"
-                    >
-                      Delete
-                    </button>
-                  </td>
+          {filteredAppointments.length > 0 ? (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Patient
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Procedure
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date & Time
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Price
+                  </th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions / Status
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredAppointments.map(appointment => (
+                  <tr key={appointment.id} className="hover:bg-gray-50 transition-colors duration-200">
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-7 w-7">
+                          <div className="h-7 w-7 rounded-full bg-teal-100 flex items-center justify-center">
+                            <User className="w-3.5 h-3.5 text-teal-600" />
+                          </div>
+                        </div>
+                        <div className="ml-2">
+                          <div className="text-sm font-medium text-gray-900">
+                            {appointment.patientName}
+                          </div>
+                          <div className="text-xs text-gray-500">{appointment.patientPhone}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{appointment.procedureType}</div>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="flex items-center space-x-1">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                        <span className="text-sm text-gray-900">{appointment.date}</span>
+                        <Clock className="w-3.5 h-3.5 text-gray-400 ml-1" />
+                        <span className="text-sm text-gray-900">{appointment.time}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="flex items-center space-x-1">
+                        <span className={`px-1.5 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full ${getStatusColor(appointment.status)}`}>
+                          {getStatusIcon(appointment.status)}
+                          <span className="ml-0.5">{appointment.status}</span>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="flex items-center space-x-1">
+                        <span className="text-sm font-medium text-gray-900">₱{typeof appointment.procedurePrice === 'number' ? appointment.procedurePrice.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
+                      {appointment.status === 'pending' ? (
+                        <span className="text-gray-400 text-xs">Pending approval</span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleEditAppointment(appointment)}
+                            className="text-teal-600 hover:text-teal-900 mr-2 text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAppointment(appointment.id)}
+                            className="text-red-600 hover:text-red-900 text-sm"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Calendar className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {!statusFilter && !dateFilter && !searchTerm
+                  ? 'No appointments found'
+                  : `No ${getFilterDescription()} appointments found`
+                }
+              </h3>
+              <p className="text-gray-500 text-center max-w-sm">
+                {!statusFilter && !dateFilter && !searchTerm
+                  ? 'There are no appointments in the system yet. Create your first appointment to get started.'
+                  : `There are no appointments matching your current filters. Try adjusting your search criteria. Note: Pending appointments are managed in the Appointment Requests page.`
+                }
+              </p>
+              {(statusFilter || dateFilter || searchTerm) && (
+                <button
+                  onClick={() => {
+                    setStatusFilter('');
+                    setDateFilter('');
+                    setSearchTerm('');
+                  }}
+                  className="mt-4 text-teal-600 hover:text-teal-700 font-medium"
+                >
+                  Clear all filters
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {showAddModal && (
         <AddAppointmentModal
           patients={patients}
-          blockedDates={[]}
+          blockedDates={blockedDates}
           onClose={() => setShowAddModal(false)}
           onSubmit={async (appointmentData) => {
             try {
@@ -302,7 +355,7 @@ const AppointmentListPage: React.FC = () => {
         <EditAppointmentModal
           appointment={selectedAppointment}
           patients={patients}
-          blockedDates={[]}
+          blockedDates={blockedDates}
           onClose={() => {
             setShowEditModal(false);
             setSelectedAppointment(null);

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, User, AlertCircle } from 'lucide-react';
-import { Appointment, Patient } from '../../types';
+import { Appointment, Patient, procedureTypes, timeSlots } from '../../types';
 
 interface EditAppointmentModalProps {
   appointment?: Appointment;
@@ -18,7 +18,7 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
   onSubmit
 }) => {
   const [formData, setFormData] = useState({
-    patientId: appointment?.patientId || '',
+    patientId: '',
     patientName: appointment?.patientName || '',
     patientPhone: appointment?.patientPhone || '',
     procedureType: appointment?.procedureType || '',
@@ -37,8 +37,53 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Set initial patientId when appointment is loaded
+  useEffect(() => {
+    if (appointment && patients.length > 0) {
+      const patient = patients.find(p => 
+        `${p.firstName} ${p.lastName}` === appointment.patientName
+      );
+      if (patient) {
+        setFormData(prev => ({
+          ...prev,
+          patientId: patient.id
+        }));
+      }
+    }
+  }, [appointment, patients]);
+
+  const handlePatientChange = (patientId: string) => {
+    const patient = patients.find(p => p.id === patientId);
+    if (patient) {
+      setFormData({
+        ...formData,
+        patientId,
+        patientName: `${patient.firstName} ${patient.lastName}`,
+        patientPhone: patient.phone
+      });
+    }
+  };
+
+  const handleProcedureChange = (procedureType: string) => {
+    const procedure = procedureTypes.find(p => p.name === procedureType);
+    const price = procedure ? procedure.price : 0;
+    setFormData({
+      ...formData,
+      procedureType,
+      procedurePrice: price,
+      price: price
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check for blocked date before submitting
+    if (isDateBlocked(formData.date)) {
+      setError('Sorry but the doctor isnt available to this day please pick another date');
+      return;
+    }
+    
     setLoading(true);
     setError('');
 
@@ -79,6 +124,10 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
     }));
   };
 
+  const isDateBlocked = (date: string) => {
+    return blockedDates.includes(date);
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full transform hover:scale-[1.01] transition-transform duration-300">
@@ -104,41 +153,25 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
             {/* Patient Information */}
             <div className="bg-gray-50 rounded-lg p-4">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Patient Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="patientName" className="block text-sm font-medium text-gray-700 mb-2">
-                    Patient Name
+                <label htmlFor="patientId" className="block text-sm font-medium text-gray-700 mb-2">
+                  Patient
                   </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      id="patientName"
-                      name="patientName"
-                      value={formData.patientName}
-                      onChange={handleInputChange}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                <select
+                  id="patientId"
+                  name="patientId"
+                  value={formData.patientId}
+                  onChange={(e) => handlePatientChange(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
                       required
-                    />
-                    <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="patientPhone" className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      id="patientPhone"
-                      name="patientPhone"
-                      value={formData.patientPhone}
-                      onChange={handleInputChange}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
-                      required
-                    />
-                    <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  </div>
-                </div>
+                >
+                  <option value="">Select Patient</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.firstName} {patient.lastName} - {patient.email}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -150,32 +183,33 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
                   <label htmlFor="procedureType" className="block text-sm font-medium text-gray-700 mb-2">
                     Procedure Type
                   </label>
-                  <input
-                    type="text"
+                  <select
                     id="procedureType"
                     name="procedureType"
                     value={formData.procedureType}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                    onChange={(e) => handleProcedureChange(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
                     required
-                  />
+                  >
+                    <option value="">Select Procedure</option>
+                    {procedureTypes.map(procedure => (
+                      <option key={procedure.name} value={procedure.name}>
+                        {procedure.name} - ₱{procedure.price.toLocaleString()}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label htmlFor="procedurePrice" className="block text-sm font-medium text-gray-700 mb-2">
-                    Procedure Price
+                  <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
+                    Price
                   </label>
-                  <div className="relative">
                     <input
-                      type="number"
-                      id="procedurePrice"
-                      name="procedurePrice"
-                      value={formData.procedurePrice}
-                      onChange={handleInputChange}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
-                      required
-                    />
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">₱</span>
-                  </div>
+                    type="text"
+                    id="price"
+                    value={`₱${formData.price.toLocaleString()}`}
+                    readOnly
+                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
                 </div>
                 <div>
                   <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">
@@ -188,28 +222,34 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
                       name="date"
                       value={formData.date}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300 ${
+                        isDateBlocked(formData.date) ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                       required
                     />
                     <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
                   </div>
+                  {isDateBlocked(formData.date) && (
+                    <p className="text-red-600 text-sm mt-1">Sorry but the doctor isnt available to this day please pick another date</p>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-2">
                     Time
                   </label>
-                  <div className="relative">
-                    <input
-                      type="time"
+                  <select
                       id="time"
                       name="time"
                       value={formData.time}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
                       required
-                    />
-                    <Clock className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  </div>
+                  >
+                    <option value="">Select Time</option>
+                    {timeSlots.map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">
@@ -220,7 +260,7 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
                     name="status"
                     value={formData.status}
                     onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
                     required
                   >
                     <option value="scheduled">Scheduled</option>
@@ -301,7 +341,7 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || isDateBlocked(formData.date)}
                 className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
                 {loading ? (

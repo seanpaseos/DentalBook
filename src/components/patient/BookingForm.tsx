@@ -159,7 +159,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onClose, blockedDates = [] })
       // Check for blocked dates
       const hasBlockedDate = appointments.some(apt => isDateBlocked(apt.date));
       if (hasBlockedDate) {
-        alert('One or more selected dates are blocked. Please choose different dates.');
+        alert('Sorry but the doctor isnt available to this day please pick another date');
         setLoading(false);
         return;
       }
@@ -256,7 +256,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ onClose, blockedDates = [] })
           /^[a-zA-Z\s]+$/.test(p.lastName)
         );
       case 3:
-        return appointments.every(a => a.procedureType && a.date && a.time);
+        return appointments.every(a => 
+          a.procedureType && 
+          a.date && 
+          a.time && 
+          !isDateBlocked(a.date)
+        );
       default:
         return false;
     }
@@ -268,6 +273,14 @@ const BookingForm: React.FC<BookingFormProps> = ({ onClose, blockedDates = [] })
       if (!isValidPhoneNumber(contactInfo.phone)) {
         setShowPhoneError(true);
         alert('Please enter a valid phone number (must start with 09 and be exactly 11 digits)');
+        return;
+      }
+      setStep(step + 1);
+    } else if (step === 2) {
+      // Check for blocked dates before proceeding to step 3
+      const hasBlockedDate = appointments.some(apt => isDateBlocked(apt.date));
+      if (hasBlockedDate) {
+        alert('Sorry but the doctor isnt available to this day please pick another date');
         return;
       }
       setStep(step + 1);
@@ -517,7 +530,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onClose, blockedDates = [] })
                         min={new Date().toISOString().split('T')[0]}
                       />
                       {isDateBlocked(appointment.date) && (
-                        <p className="text-red-600 text-sm mt-1">This date is blocked. The doctor is not available.</p>
+                        <p className="text-red-600 text-sm mt-1">Sorry but the doctor isnt available to this day please pick another date</p>
                       )}
                     </div>
                     <div>

@@ -26,6 +26,16 @@ const EmergencyRescheduleModal: React.FC<EmergencyRescheduleModalProps> = ({
   // Check if date range is valid
   const isDateRangeValid = startDate && endDate && new Date(endDate) >= new Date(startDate);
 
+  // Debug logging
+  console.log('EmergencyRescheduleModal state:', {
+    startDate,
+    endDate,
+    message: message.trim(),
+    isDateRangeValid,
+    isSubmitting,
+    selectedAppointments: selectedAppointments.length
+  });
+
   // Filter appointments based on date range and status
   const filteredAppointments = useMemo(() => {
     if (!isDateRangeValid) return [];
@@ -65,8 +75,8 @@ const EmergencyRescheduleModal: React.FC<EmergencyRescheduleModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!startDate || !endDate || !message.trim() || selectedAppointments.length === 0) {
-      alert('Please fill in all required fields and select at least one appointment');
+    if (!startDate || !endDate || !message.trim()) {
+      alert('Please fill in all required fields (start date, end date, and reason)');
       return;
     }
 
@@ -171,13 +181,16 @@ const EmergencyRescheduleModal: React.FC<EmergencyRescheduleModalProps> = ({
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Appointments to Reschedule
+              Select Appointments to Reschedule (Optional)
               {isDateRangeValid && (
                 <span className="text-sm font-normal text-gray-500 ml-2">
                   ({filteredAppointments.length} scheduled appointments found)
                 </span>
               )}
             </label>
+            <p className="text-xs text-gray-600 mb-2">
+              You can block the selected date range even without selecting appointments. Selected appointments will be marked as rescheduled.
+            </p>
             {!startDate || !endDate ? (
               <div className="p-4 text-center text-gray-500 bg-gray-50 border border-gray-300 rounded-md">
                 Please select a date range to see available appointments
@@ -188,7 +201,7 @@ const EmergencyRescheduleModal: React.FC<EmergencyRescheduleModalProps> = ({
               </div>
             ) : filteredAppointments.length === 0 ? (
               <div className="p-4 text-center text-gray-500 bg-gray-50 border border-gray-300 rounded-md">
-                No scheduled appointments found in the selected date range
+                No scheduled appointments found in the selected date range. The date range will still be blocked.
               </div>
             ) : (
               <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-md">
@@ -229,11 +242,20 @@ const EmergencyRescheduleModal: React.FC<EmergencyRescheduleModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !message.trim() || !isDateRangeValid || selectedAppointments.length === 0}
+              disabled={isSubmitting || !message.trim() || !isDateRangeValid}
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Processing...' : 'Confirm Emergency Reschedule'}
             </button>
+          </div>
+          
+          {/* Debug info */}
+          <div className="mt-2 text-xs text-gray-500">
+            <div>Start Date: {startDate || 'Not selected'}</div>
+            <div>End Date: {endDate || 'Not selected'}</div>
+            <div>Message: {message.trim() ? '✓' : '✗'}</div>
+            <div>Date Range Valid: {isDateRangeValid ? '✓' : '✗'}</div>
+            <div>Button Disabled: {isSubmitting || !message.trim() || !isDateRangeValid ? 'Yes' : 'No'}</div>
           </div>
         </form>
       </div>

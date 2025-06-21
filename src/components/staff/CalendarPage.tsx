@@ -223,8 +223,8 @@ const CalendarPage: React.FC = () => {
       if (!rescheduleData.dateRange?.start || !rescheduleData.dateRange?.end) {
         throw new Error('Invalid date range provided');
       }
-      if (!Array.isArray(rescheduleData.affectedAppointments) || rescheduleData.affectedAppointments.length === 0) {
-        throw new Error('No appointments selected for rescheduling');
+      if (!Array.isArray(rescheduleData.affectedAppointments)) {
+        throw new Error('Invalid appointments data provided');
       }
       if (!rescheduleData.message?.trim()) {
         throw new Error('Message is required');
@@ -263,23 +263,27 @@ const CalendarPage: React.FC = () => {
       
       // Then update all affected appointments
       console.log('Updating affected appointments...');
-      try {
-        const updatePromises = rescheduleData.affectedAppointments.map(async (appointmentId: string) => {
-          const appointment = appointments.find(apt => apt.id === appointmentId);
-          if (appointment && appointment.status !== 'completed') {
-            return updateAppointment(appointmentId, { 
-              status: 'rescheduled' as AppointmentStatus,
-              notes: `Emergency rescheduled: ${rescheduleData.message.trim()}`
-            });
-          }
-        });
-        
-        await Promise.all(updatePromises.filter(Boolean));
-        console.log('All appointments updated successfully');
-      } catch (error) {
-        console.error('Failed to update appointments:', error);
-        alert('Failed to update affected appointments. Please try again.');
-        return;
+      if (rescheduleData.affectedAppointments.length > 0) {
+        try {
+          const updatePromises = rescheduleData.affectedAppointments.map(async (appointmentId: string) => {
+            const appointment = appointments.find(apt => apt.id === appointmentId);
+            if (appointment && appointment.status !== 'completed') {
+              return updateAppointment(appointmentId, { 
+                status: 'rescheduled' as AppointmentStatus,
+                notes: `Emergency rescheduled: ${rescheduleData.message.trim()}`
+              });
+            }
+          });
+          
+          await Promise.all(updatePromises.filter(Boolean));
+          console.log('All appointments updated successfully');
+        } catch (error) {
+          console.error('Failed to update appointments:', error);
+          alert('Failed to update affected appointments. Please try again.');
+          return;
+        }
+      } else {
+        console.log('No appointments selected for rescheduling - only blocking dates');
       }
       
       // Refresh the appointments list and blocked dates
@@ -290,7 +294,11 @@ const CalendarPage: React.FC = () => {
       setShowEmergencyModal(false);
       
       // Show success message
-      alert('Emergency reschedule completed successfully');
+      if (rescheduleData.affectedAppointments.length > 0) {
+        alert('Emergency reschedule completed successfully');
+      } else {
+        alert('Date range blocked successfully');
+      }
     } catch (error) {
       console.error('Error processing emergency reschedule:', error);
       if (error instanceof Error) {

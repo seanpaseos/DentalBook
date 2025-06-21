@@ -79,13 +79,32 @@ export const getAppointments = async (): Promise<Appointment[]> => {
 };
 
 export const updateAppointment = async (id: string, data: Partial<Appointment>) => {
-  const updateData = {
-    ...data,
-    // If date is being updated, ensure it's in the correct format
-    ...(data.date && { date: data.date.split('T')[0] }),
-    updatedAt: new Date().toISOString()
-  };
-  await updateDoc(doc(db, 'appointments', id), updateData);
+  try {
+    console.log('Updating appointment with ID:', id);
+    console.log('Update data:', data);
+    
+    const updateData = {
+      ...data,
+      // If date is being updated, ensure it's in the correct format
+      ...(data.date && { date: data.date.split('T')[0] }),
+      updatedAt: new Date().toISOString()
+    };
+    
+    console.log('Formatted update data:', updateData);
+    
+    await updateDoc(doc(db, 'appointments', id), updateData);
+    console.log('Appointment updated successfully');
+  } catch (error) {
+    console.error('Error updating appointment:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        code: (error as any).code
+      });
+    }
+    throw error;
+  }
 };
 
 export const deleteAppointment = async (id: string) => {

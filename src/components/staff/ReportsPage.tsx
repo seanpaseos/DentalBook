@@ -34,10 +34,12 @@ const ReportsPage: React.FC = () => {
   };
 
   const calculateRevenue = (appointments: Appointment[]) => {
-    return appointments.reduce((total, apt) => {
-      const price = apt.procedurePrice || 0;
-      return total + (price * (apt.occurrences || 1));
-    }, 0);
+    return appointments
+      .filter(apt => apt.status === 'completed')
+      .reduce((total, apt) => {
+        const price = apt.procedurePrice || apt.price || 0;
+        return total + (price * (apt.occurrences || 1));
+      }, 0);
   };
 
   const getProcedureDistribution = (appointments: Appointment[]) => {
@@ -65,13 +67,15 @@ const ReportsPage: React.FC = () => {
   };
 
   const getMonthlyRevenue = (appointments: Appointment[]) => {
-    const monthlyData = appointments.reduce((acc: { [key: string]: number }, apt) => {
-      const date = new Date(apt.date);
-      const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
-      const price = apt.procedurePrice || 0;
-      acc[monthYear] = (acc[monthYear] || 0) + (price * (apt.occurrences || 1));
-      return acc;
-    }, {});
+    const monthlyData = appointments
+      .filter(apt => apt.status === 'completed')
+      .reduce((acc: { [key: string]: number }, apt) => {
+        const date = new Date(apt.date);
+        const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+        const price = apt.procedurePrice || apt.price || 0;
+        acc[monthYear] = (acc[monthYear] || 0) + (price * (apt.occurrences || 1));
+        return acc;
+      }, {});
 
     return Object.entries(monthlyData).map(([name, value]) => ({
       name,
@@ -98,7 +102,10 @@ const ReportsPage: React.FC = () => {
 
   const calculateMetrics = () => {
     const completedAppointments = filteredAppointments.filter(apt => apt.status === 'completed');
-    const totalRevenue = completedAppointments.reduce((sum, apt) => sum + apt.price, 0);
+    const totalRevenue = completedAppointments.reduce((sum, apt) => {
+      const price = apt.procedurePrice || apt.price || 0;
+      return sum + (price * (apt.occurrences || 1));
+    }, 0);
     const totalAppointments = filteredAppointments.length;
     const completionRate = totalAppointments > 0 ? (completedAppointments.length / totalAppointments) * 100 : 0;
     const activeClients = new Set(completedAppointments.map(apt => apt.patientId)).size;
@@ -126,7 +133,8 @@ const ReportsPage: React.FC = () => {
       .filter(apt => apt.status === 'completed')
       .forEach(apt => {
         const month = new Date(apt.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-        monthlyRevenue[month] = (monthlyRevenue[month] || 0) + apt.price;
+        const price = apt.procedurePrice || apt.price || 0;
+        monthlyRevenue[month] = (monthlyRevenue[month] || 0) + (price * (apt.occurrences || 1));
       });
     return Object.entries(monthlyRevenue).map(([month, revenue]) => ({ month, revenue }));
   };
@@ -389,7 +397,7 @@ const ReportsPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Unique Patients</p>
-              <p className="text-lg font-semibold text-gray-800">{new Set(filteredAppointments.map(apt => apt.patientName)).size}</p>
+              <p className="text-lg font-semibold text-gray-800">{new Set(filteredAppointments.filter(apt => apt.status === 'completed').map(apt => apt.patientName)).size}</p>
             </div>
             <div className="p-2 bg-purple-100 rounded-lg">
               <Users className="w-4 h-4 text-purple-600" />
@@ -400,7 +408,7 @@ const ReportsPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500">Avg. Revenue</p>
-              <p className="text-lg font-semibold text-gray-800">₱{(totalRevenue / (filteredAppointments.length || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              <p className="text-lg font-semibold text-gray-800">₱{(totalRevenue / (filteredAppointments.filter(apt => apt.status === 'completed').length || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
             </div>
             <div className="p-2 bg-orange-100 rounded-lg">
               <TrendingUp className="w-4 h-4 text-orange-600" />
